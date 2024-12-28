@@ -4,7 +4,7 @@ import HelloWorld from './components/HelloWorld.vue'
 </script>
 
 <template>
-  <header>
+  <!-- <header>
     <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
 
     <div class="wrapper">
@@ -15,12 +15,17 @@ import HelloWorld from './components/HelloWorld.vue'
         <RouterLink to="/about">About</RouterLink>
       </nav>
     </div>
-  </header>
-
-  <RouterView />
+  </header> -->
+  <div class="app-container">
+    <RouterView />
+  </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+.app-container {
+  width: 100%;
+  height: 100%;
+}
 header {
   line-height: 1.5;
   max-height: 100vh;
