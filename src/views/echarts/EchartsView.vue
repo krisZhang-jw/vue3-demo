@@ -39,9 +39,35 @@ const genData = (count: number) => {
 const data = genData(30)
 
 const option = {
+  graphic: {
+    elements: [
+      {
+        type: 'text',
+        top: '0%',
+        right: '14%',
+        style: {
+          text: '名称',
+          fontSize: 12,
+          fontWeight: 'bold',
+          fill: '#333',
+        },
+      },
+      {
+        type: 'text',
+        top: '0%',
+        right: '2%',
+        style: {
+          text: '百分比',
+          fontSize: 12,
+          fontWeight: 'bold',
+          fill: '#333',
+        },
+      },
+    ],
+  },
   title: {
-    text: '同名数量统计',
-    subtext: '纯属虚构',
+    // text: '同名数量统计',
+    // subtext: '纯属虚构',
     left: 'center',
   },
   tooltip: {
@@ -49,12 +75,36 @@ const option = {
     formatter: '{a} <br/>{b} : {c} ({d}%)',
   },
   legend: {
+    icon: 'circle',
     type: 'scroll',
     orient: 'vertical',
     right: 10,
     top: 20,
     bottom: 20,
     data: data.legendData,
+    formatter: function (name: string) {
+      const total = data.seriesData.reduce((sum, item) => sum + item.value, 0)
+      const item = data.seriesData.find((item) => item.name === name)
+      const percentage = ((item.value / total) * 100).toFixed(2)
+      const newName = name.length > 4 ? name.slice(0, 6) + '...' : name
+      return `{name|${newName}}{percentage|${percentage}%}`
+    },
+    textStyle: {
+      rich: {
+        name: {
+          width: 70,
+          align: 'left',
+          overflow: 'hidden',
+          ellipsis: true,
+        },
+        percentage: {
+          width: 50,
+          align: 'right',
+          overflow: 'hidden',
+          ellipsis: true,
+        },
+      },
+    },
   },
   series: [
     {
