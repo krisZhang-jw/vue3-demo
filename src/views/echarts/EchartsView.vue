@@ -85,7 +85,7 @@ const option = {
     formatter: function (name: string) {
       const total = data.seriesData.reduce((sum, item) => sum + item.value, 0)
       const item = data.seriesData.find((item) => item.name === name)
-      const percentage = ((item.value / total) * 100).toFixed(2)
+      const percentage = item ? ((item.value / total) * 100).toFixed(2) : '0.00'
       const newName = name.length > 4 ? name.slice(0, 6) + '...' : name
       return `{name|${newName}}{percentage|${percentage}%}`
     },
