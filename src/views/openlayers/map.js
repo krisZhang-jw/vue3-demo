@@ -91,7 +91,7 @@ export default class {
     })
     const modifyInteraction = new Modify({ source: vectorSource })
     const snapInteraction = new Snap({ source: vectorSource })
-    const selectInteraction = new Select({ layers: [vectorLayer] }) // 可以不要layers
+    const selectInteraction = new Select({ layers: [vectorLayer], hitTolerance: 10 }) // 可以不要layers
 
     snapInteraction.on('snap', (e) => {
       // console.log('snap', e)
@@ -308,7 +308,26 @@ export default class {
     const vectorSource = this.vectorSource
     const features = vectorSource.getFeatures()
     const pointFeatures = features.filter((feature) => feature.getGeometry().getType() === 'Point')
-    this.pointCoordinates = pointFeatures.map((feature, index) => {
+    // 找到pointFeatures中坐标点一样的点
+    const uniquePointFeature = pointFeatures.reduce((arr, cur) => {
+      const coordinates = cur.getGeometry().getCoordinates()
+      const id = cur.getId()
+      const index = arr.findIndex(
+        (item) =>
+          JSON.stringify(item.getGeometry().getCoordinates()) === JSON.stringify(coordinates),
+      )
+      if (index === -1) {
+        arr.push(cur)
+      }
+      return arr
+    }, [])
+    const uniqueId = uniquePointFeature.map((feature) => feature.getId())
+    pointFeatures.forEach((feature) => {
+      if (!uniqueId.includes(feature.getId())) {
+        this.vectorSource.removeFeature(feature)
+      }
+    })
+    this.pointCoordinates = uniquePointFeature.map((feature, index) => {
       // 某个点坐标
       const coordinates = feature.getGeometry().getCoordinates()
       // 点关联的线
