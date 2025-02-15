@@ -1,5 +1,5 @@
 <template>
-  <useMap ref="useMapRef" :isDrawing :mapPoints />
+  <useMap ref="useMapRef" :isDrawing="isDrawing" :mapPoints="mapPoints" />
   <div class="buttons">
     <button @click="addFeature">新增</button>
     <button @click="modifyFeature">修改</button>
