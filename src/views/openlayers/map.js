@@ -91,7 +91,14 @@ export default class {
     })
     const modifyInteraction = new Modify({ source: vectorSource })
     const snapInteraction = new Snap({ source: vectorSource })
-    const selectInteraction = new Select({ layers: [vectorLayer], hitTolerance: 10 }) // 可以不要layers
+    const selectInteraction = new Select({
+      layers: [vectorLayer],
+      hitTolerance: 10,
+      condition: (mapBrowserEvent) => {
+        const event = mapBrowserEvent.originalEvent
+        return event.button === 2 // 配置右键选择
+      },
+    }) // 可以不要layers
 
     snapInteraction.on('snap', (e) => {
       // console.log('snap', e)
