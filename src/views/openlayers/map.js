@@ -89,7 +89,13 @@ export default class {
         // return isMacRightClick
       },
     })
-    const modifyInteraction = new Modify({ source: vectorSource })
+    const modifyInteraction = new Modify({
+      source: vectorSource,
+      insertVertex: false,
+      insertVertexCondition: (event) => {
+        return false
+      },
+    })
     const snapInteraction = new Snap({ source: vectorSource })
     const selectInteraction = new Select({
       layers: [vectorLayer],
