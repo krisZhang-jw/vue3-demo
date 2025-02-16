@@ -5,7 +5,7 @@ import { defaults as defaultsControls } from 'ol/control'
 import { Vector as VectorSource } from 'ol/source'
 import { Vector as VectorLayer } from 'ol/layer'
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style'
-import { Feature } from 'ol'
+import { Feature, Overlay } from 'ol'
 import { LineString, Point } from 'ol/geom'
 
 export default class {
@@ -299,8 +299,34 @@ export default class {
     map.on('pointerdrag', (e) => {
       console.log('map pointerdrag', e)
     })
+
+    const addMoveTooltip = (map) => {
+      if (this.moveOverlayInstance) {
+        return
+      }
+      // const toolTip = document.createElement('div')
+      // toolTip.innerText = '这里放一点提示语'
+      // toolTip.style.position = 'absolute';
+      // toolTip.style.display = 'block'
+      // toolTip.style.whiteSpace = 'nowrap'
+      const toolTip = document.getElementById('moveTooltip')
+      const overlay = new Overlay({
+        element: toolTip,
+        stopEvent: true,
+      })
+      this.moveOverlayInstance = overlay
+      this.moveTooltip = toolTip
+      map.addOverlay(overlay)
+    }
+
+    addMoveTooltip(this.oMap)
+
     map.on('pointermove', (e) => {
-      // console.log('map pointermove', e)
+      console.log('map pointermove', e)
+      const pixel = e.pixel;
+      console.log('pixel', pixel)
+      const coordinate = map.getCoordinateFromPixel([pixel[0] + 10, pixel[1] + 10]);
+      this.moveOverlayInstance.setPosition(coordinate)
     })
   }
 

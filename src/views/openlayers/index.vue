@@ -6,6 +6,9 @@
     <button @click="dispatchFeature">下发</button>
     <button @click="deleteFeature">删除</button>
   </div>
+  <div id="moveTooltip">
+    我是提示语
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -55,5 +58,13 @@ onMounted(() => {})
 
 button {
   margin: 5px;
+}
+
+#moveTooltip {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 5px;
+  display: block;
+  white-space: nowrap;
 }
 </style>
