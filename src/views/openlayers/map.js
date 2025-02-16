@@ -89,9 +89,22 @@ export default class {
         // return isMacRightClick
       },
     })
-    const modifyInteraction = new Modify({ source: vectorSource })
+    const modifyInteraction = new Modify({
+      source: vectorSource,
+      insertVertex: false,
+      insertVertexCondition: (event) => {
+        return false
+      },
+    })
     const snapInteraction = new Snap({ source: vectorSource })
-    const selectInteraction = new Select({ layers: [vectorLayer], hitTolerance: 10 }) // 可以不要layers
+    const selectInteraction = new Select({
+      layers: [vectorLayer],
+      hitTolerance: 10,
+      condition: (mapBrowserEvent) => {
+        const event = mapBrowserEvent.originalEvent
+        return event.button === 2 // 配置右键选择
+      },
+    }) // 可以不要layers
 
     snapInteraction.on('snap', (e) => {
       // console.log('snap', e)
@@ -156,124 +169,135 @@ export default class {
         //   })
         //   .then(() => {
         const lineFeatures = selectedFeatures.getGeometry().getType() === 'LineString'
+
         if (lineFeatures) {
-          const firstCoordinate = selectedFeatures.getGeometry().getFirstCoordinate() // 左端点坐标
-          const firstFeature = this.vectorSource.getClosestFeatureToCoordinate(
-            // 左端点对象
-            firstCoordinate,
-            (feature) => feature.getGeometry().getType() === 'Point',
-          )
-          const firstId = firstFeature.getId() // 左端点id
-          const lastCoordinate = selectedFeatures.getGeometry().getLastCoordinate() // 右端点坐标
-          const lastFeature = this.vectorSource.getClosestFeatureToCoordinate(
-            // 右端点对象
-            lastCoordinate,
-            (feature) => feature.getGeometry().getType() === 'Point',
-          )
-          const lastId = lastFeature.getId() // 右端点id
+          // 在鼠标坐标处显示按钮
+          this.overlayInstance.setPosition(e.mapBrowserEvent.coordinate)
+        } else {
+          // 若非线要素，就隐藏按钮
+          this.overlayInstance.setPosition(undefined)
+        }
 
-          // 判读某个线段的某个端点，是否包含除了另一端点之外的其他点，包含则不允许删除，不包含则允许删除
-          const checkNodeHasOtherNodes = (node1Id, node2Id) => {
-            const linkNode = this.mapPoints.find((point) => point.id === node1Id)?.linkNode // [2]
-            console.log(
-              'checkNodeHasOtherNodes === ',
-              node1Id,
-              'linkNode ==== ',
-              JSON.stringify(linkNode),
+        this.deleteMethod = () => {
+          if (lineFeatures) {
+            const firstCoordinate = selectedFeatures.getGeometry().getFirstCoordinate() // 左端点坐标
+            const firstFeature = this.vectorSource.getClosestFeatureToCoordinate(
+              // 左端点对象
+              firstCoordinate,
+              (feature) => feature.getGeometry().getType() === 'Point',
             )
-            return !!linkNode.filter((nodeId) => nodeId !== node2Id).length
-          }
+            const firstId = firstFeature.getId() // 左端点id
+            const lastCoordinate = selectedFeatures.getGeometry().getLastCoordinate() // 右端点坐标
+            const lastFeature = this.vectorSource.getClosestFeatureToCoordinate(
+              // 右端点对象
+              lastCoordinate,
+              (feature) => feature.getGeometry().getType() === 'Point',
+            )
+            const lastId = lastFeature.getId() // 右端点id
 
-          const deleteNodeById = (nodeId, stringOtherNodeId) => {
-            // 将mapPoints中删除nodeId点
-            this.mapPoints = this.mapPoints.filter((point) => point.id !== nodeId)
-            // 其他点的linkNode中删除关联点是nodeId
+            // 判读某个线段的某个端点，是否包含除了另一端点之外的其他点，包含则不允许删除，不包含则允许删除
+            const checkNodeHasOtherNodes = (node1Id, node2Id) => {
+              const linkNode = this.mapPoints.find((point) => point.id === node1Id)?.linkNode // [2]
+              console.log(
+                'checkNodeHasOtherNodes === ',
+                node1Id,
+                'linkNode ==== ',
+                JSON.stringify(linkNode),
+              )
+              return !!linkNode.filter((nodeId) => nodeId !== node2Id).length
+            }
+
+            const deleteNodeById = (nodeId, stringOtherNodeId) => {
+              // 将mapPoints中删除nodeId点
+              this.mapPoints = this.mapPoints.filter((point) => point.id !== nodeId)
+              // 其他点的linkNode中删除关联点是nodeId
+              this.mapPoints.forEach((point) => {
+                if (point.linkNode.includes(nodeId)) {
+                  point.linkNode = point.linkNode.filter((linkId) => linkId !== nodeId)
+                }
+              })
+              // 删除当前点要素
+              const nodeFeature = this.vectorSource.getFeatureById(nodeId)
+              this.vectorSource.removeFeature(nodeFeature)
+            }
+
+            if (!checkNodeHasOtherNodes(firstId, lastId)) {
+              // 删除firstId
+              console.log('要删除firstId啦', firstId)
+              deleteNodeById(firstId, lastId)
+            }
+            if (!checkNodeHasOtherNodes(lastId, firstId)) {
+              // 删除lastId
+              console.log('要删除lastId啦', lastId)
+              deleteNodeById(lastId, firstId)
+            }
+
+            // console.log('操作一次删除之后的mapPoints', JSON.stringify(this.mapPoints))
+
             this.mapPoints.forEach((point) => {
-              if (point.linkNode.includes(nodeId)) {
-                point.linkNode = point.linkNode.filter((linkId) => linkId !== nodeId)
+              if (point.id === firstId) {
+                point.linkNode = point.linkNode.filter((linkId) => linkId !== lastId)
+              }
+              if (point.id === lastId) {
+                point.linkNode = point.linkNode.filter((linkId) => linkId !== firstId)
               }
             })
-            // 删除当前点要素
-            const nodeFeature = this.vectorSource.getFeatureById(nodeId)
-            this.vectorSource.removeFeature(nodeFeature)
+
+            console.log('操作一次删除之后的mapPoints', JSON.stringify(this.mapPoints))
+
+            this.vectorSource.removeFeature(selectedFeatures)
+
+            // const firstCoordinateLinkNode = this.mapPoints
+            //   .find(
+            //     (point) =>
+            //       JSON.stringify([point.xCoord, point.yCoord]) === JSON.stringify(firstCoordinate),
+            //   ) // [{id:1,xxxx}]
+            //   .map((point) => point.linkNode)?.linkNode // {linkNode: [2]} => [2]
+            // if (firstCoordinateLinkNode?.length <= 1) {
+            //   // ?
+
+            //   // 将mapPoints中删除点
+            //   this.mapPoints = this.mapPoints.filter(
+            //     (point) =>
+            //       JSON.stringify([point.xCoord, point.yCoord]) !== JSON.stringify(firstCoordinate),
+            //   )
+            //   // 其他点的linkNode中删除关联点
+            //   this.mapPoints.forEach((point) => {
+            //     const id = firstFeature.getId()
+            //     if (point.linkNode.includes(id)) {
+            //       point.linkNode = point.linkNode.filter((linkId) => linkId !== id)
+            //     }
+            //   })
+            //   this.vectorSource.removeFeature(firstFeature)
+            // }
+
+            // // 以下是last
+            // const lastCoordinateLinkNode = this.mapPoints
+            //   .find(
+            //     (point) =>
+            //       JSON.stringify([point.xCoord, point.yCoord]) === JSON.stringify(lastCoordinate),
+            //   )
+            //   .map((point) => point.linkNode)?.linkNode
+            // if (lastCoordinateLinkNode?.length <= 1) {
+            //   const lastFeature = this.vectorSource.getClosestFeatureToCoordinate(
+            //     lastCoordinate,
+            //     (feature) => feature.getGeometry().getType() === 'Point',
+            //   )
+            //   this.mapPoints = this.mapPoints.filter(
+            //     (point) =>
+            //       JSON.stringify([point.xCoord, point.yCoord]) !== JSON.stringify(lastCoordinate),
+            //   )
+            //   this.mapPoints.forEach((point) => {
+            //     const id = lastFeature.getId()
+            //     if (point.linkNode.includes(id)) {
+            //       point.linkNode = point.linkNode.filter((linkId) => linkId !== id)
+            //     }
+            //   })
+            //   this.vectorSource.removeFeature(lastFeature)
+            // }
+
+            // this.vectorSource.removeFeature(selectedFeatures)
           }
-
-          if (!checkNodeHasOtherNodes(firstId, lastId)) {
-            // 删除firstId
-            console.log('要删除firstId啦', firstId)
-            deleteNodeById(firstId, lastId)
-          }
-          if (!checkNodeHasOtherNodes(lastId, firstId)) {
-            // 删除lastId
-            console.log('要删除lastId啦', lastId)
-            deleteNodeById(lastId, firstId)
-          }
-
-          // console.log('操作一次删除之后的mapPoints', JSON.stringify(this.mapPoints))
-
-          this.mapPoints.forEach((point) => {
-            if (point.id === firstId) {
-              point.linkNode = point.linkNode.filter((linkId) => linkId !== lastId)
-            }
-            if (point.id === lastId) {
-              point.linkNode = point.linkNode.filter((linkId) => linkId !== firstId)
-            }
-          })
-
-          console.log('操作一次删除之后的mapPoints', JSON.stringify(this.mapPoints))
-
-          this.vectorSource.removeFeature(selectedFeatures)
-
-          // const firstCoordinateLinkNode = this.mapPoints
-          //   .find(
-          //     (point) =>
-          //       JSON.stringify([point.xCoord, point.yCoord]) === JSON.stringify(firstCoordinate),
-          //   ) // [{id:1,xxxx}]
-          //   .map((point) => point.linkNode)?.linkNode // {linkNode: [2]} => [2]
-          // if (firstCoordinateLinkNode?.length <= 1) {
-          //   // ?
-
-          //   // 将mapPoints中删除点
-          //   this.mapPoints = this.mapPoints.filter(
-          //     (point) =>
-          //       JSON.stringify([point.xCoord, point.yCoord]) !== JSON.stringify(firstCoordinate),
-          //   )
-          //   // 其他点的linkNode中删除关联点
-          //   this.mapPoints.forEach((point) => {
-          //     const id = firstFeature.getId()
-          //     if (point.linkNode.includes(id)) {
-          //       point.linkNode = point.linkNode.filter((linkId) => linkId !== id)
-          //     }
-          //   })
-          //   this.vectorSource.removeFeature(firstFeature)
-          // }
-
-          // // 以下是last
-          // const lastCoordinateLinkNode = this.mapPoints
-          //   .find(
-          //     (point) =>
-          //       JSON.stringify([point.xCoord, point.yCoord]) === JSON.stringify(lastCoordinate),
-          //   )
-          //   .map((point) => point.linkNode)?.linkNode
-          // if (lastCoordinateLinkNode?.length <= 1) {
-          //   const lastFeature = this.vectorSource.getClosestFeatureToCoordinate(
-          //     lastCoordinate,
-          //     (feature) => feature.getGeometry().getType() === 'Point',
-          //   )
-          //   this.mapPoints = this.mapPoints.filter(
-          //     (point) =>
-          //       JSON.stringify([point.xCoord, point.yCoord]) !== JSON.stringify(lastCoordinate),
-          //   )
-          //   this.mapPoints.forEach((point) => {
-          //     const id = lastFeature.getId()
-          //     if (point.linkNode.includes(id)) {
-          //       point.linkNode = point.linkNode.filter((linkId) => linkId !== id)
-          //     }
-          //   })
-          //   this.vectorSource.removeFeature(lastFeature)
-          // }
-
-          // this.vectorSource.removeFeature(selectedFeatures)
         }
         // })
         // .catch(() => {
@@ -281,6 +305,29 @@ export default class {
         // })
       }
     })
+
+    const addContextMenu = (map) => {
+      if (this.overlayInstance) {
+        return
+      }
+      const deleteButton = document.createElement('button')
+      deleteButton.innerText = '删除此线'
+      deleteButton.style.display = 'inline-block'
+      deleteButton.onclick = () => {
+        // 删除要素
+        this.deleteMethod?.()
+        // 隐藏按钮
+        this.overlayInstance.setPosition(undefined)
+      }
+      const overlay = new Overlay({
+        element: deleteButton,
+        stopEvent: true,
+      })
+      this.overlayInstance = overlay
+      map.addOverlay(overlay)
+    }
+
+    addContextMenu(this.oMap)
 
     map.on('click', (e) => {
       console.log('map click', e)
