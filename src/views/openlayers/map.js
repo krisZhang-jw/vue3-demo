@@ -7,6 +7,8 @@ import { Vector as VectorLayer } from 'ol/layer'
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style'
 import { Feature, Overlay } from 'ol'
 import { LineString, Point } from 'ol/geom'
+import { click } from 'ol/events/condition.js'
+import { getDistance } from 'ol/sphere';
 
 export default class {
   constructor(opt) {
@@ -69,24 +71,23 @@ export default class {
     const drawPoint = new Draw({
       source: vectorSource,
       type: 'Point',
+      condition: (mapBrowserEvent) => {
+        // 判断当前画的点在不在线上
+        return canDraw(mapBrowserEvent, drawPoint)
+      }
     })
     const drawLine = new Draw({
       source: vectorSource,
       type: 'LineString',
       condition: (mapBrowserEvent) => {
         const event = mapBrowserEvent.originalEvent
-
-        console.log('event', event)
         // 检查是否为鼠标左键或触控
         const isLeftClick = event.button === 0
         // 检查是否为触控设备
         const isTouch = event.type.startsWith('touch')
         // 在 Mac 上，ctrl + 左键会被视为右键
         const isMacRightClick = event.ctrlKey && event.button === 0
-
-        // return isLeftClick || isTouch || isMacRightClick
-        return isLeftClick || isMacRightClick
-        // return isMacRightClick
+        return canDraw(mapBrowserEvent, drawPoint) && (isLeftClick || isTouch || isMacRightClick)
       },
     })
     const modifyInteraction = new Modify({
@@ -100,17 +101,14 @@ export default class {
     const selectInteraction = new Select({
       layers: [vectorLayer],
       hitTolerance: 10,
-      condition: (mapBrowserEvent) => {
-        const event = mapBrowserEvent.originalEvent
-        return event.button === 2 // 配置右键选择
-      },
-    }) // 可以不要layers
+      condition: click,
+    })
 
     snapInteraction.on('snap', (e) => {
       // console.log('snap', e)
     })
 
-    this.interactions = [drawPoint, drawLine, modifyInteraction, snapInteraction, selectInteraction]
+    this.interactions = [modifyInteraction,selectInteraction, drawLine, drawPoint, snapInteraction, ]
     this.vectorSource = vectorSource
     this.vectorLayer = vectorLayer
     this.drawPoint = drawPoint
@@ -118,6 +116,38 @@ export default class {
     this.modifyInteraction = modifyInteraction
     this.snapInteraction = snapInteraction
     this.selectInteraction = selectInteraction
+
+    const canDraw = (mapBrowserEvent) => {
+      const startCoord = mapBrowserEvent.coordinate_
+
+      let res = true
+
+      // 遍历所有现有线
+      vectorSource.forEachFeature(function(feature) {
+        const geometry = feature.getGeometry();
+        if (geometry instanceof LineString) {
+          // 检查初始点是否在线上
+          const closestPoint = geometry.getClosestPoint(startCoord); // 获取线上最近的点
+          const distance = getDistance(startCoord, closestPoint); // 计算两点之间的距离
+          console.log('distance', distance)
+
+          // 检查初始点是否在点上
+          const isPoint = vectorSource.getFeatures().some((feature) => {
+            const coordinates = feature.getGeometry().getCoordinates()
+            if (coordinates.some((coord) => coord.toString() === startCoord.toString())) {
+              return true
+            }
+          })
+    
+          // 如果不在点上 且 距离小于一个阈值（例如 1 米），则认为初始点在线上
+          if (!isPoint && distance < 1) {
+            // 取消绘制
+            res = false;
+          }
+        }
+      });
+      return res
+    }
 
     drawPoint.on('drawstart', (e) => {
       console.log('drawPoint drawstart', e)
@@ -150,13 +180,6 @@ export default class {
       })
     })
 
-    modifyInteraction.on('modifystart', (e) => {
-      // console.log('modifyInteraction modifystart', e)
-    })
-    modifyInteraction.on('modifyend', (e) => {
-      // console.log('modifyInteraction modifyend', e)
-    })
-
     selectInteraction.on('select', (e) => {
       console.log('selectInteraction select', e)
       const selectedFeatures = e.selected[0]
@@ -169,7 +192,6 @@ export default class {
         //   })
         //   .then(() => {
         const lineFeatures = selectedFeatures.getGeometry().getType() === 'LineString'
-
         if (lineFeatures) {
           // 在鼠标坐标处显示按钮
           this.overlayInstance.setPosition(e.mapBrowserEvent.coordinate)
@@ -198,12 +220,6 @@ export default class {
             // 判读某个线段的某个端点，是否包含除了另一端点之外的其他点，包含则不允许删除，不包含则允许删除
             const checkNodeHasOtherNodes = (node1Id, node2Id) => {
               const linkNode = this.mapPoints.find((point) => point.id === node1Id)?.linkNode // [2]
-              console.log(
-                'checkNodeHasOtherNodes === ',
-                node1Id,
-                'linkNode ==== ',
-                JSON.stringify(linkNode),
-              )
               return !!linkNode.filter((nodeId) => nodeId !== node2Id).length
             }
 
@@ -223,16 +239,12 @@ export default class {
 
             if (!checkNodeHasOtherNodes(firstId, lastId)) {
               // 删除firstId
-              console.log('要删除firstId啦', firstId)
               deleteNodeById(firstId, lastId)
             }
             if (!checkNodeHasOtherNodes(lastId, firstId)) {
               // 删除lastId
-              console.log('要删除lastId啦', lastId)
               deleteNodeById(lastId, firstId)
             }
-
-            // console.log('操作一次删除之后的mapPoints', JSON.stringify(this.mapPoints))
 
             this.mapPoints.forEach((point) => {
               if (point.id === firstId) {
@@ -242,8 +254,6 @@ export default class {
                 point.linkNode = point.linkNode.filter((linkId) => linkId !== firstId)
               }
             })
-
-            console.log('操作一次删除之后的mapPoints', JSON.stringify(this.mapPoints))
 
             this.vectorSource.removeFeature(selectedFeatures)
 
@@ -330,21 +340,21 @@ export default class {
     addContextMenu(this.oMap)
 
     map.on('click', (e) => {
-      console.log('map click', e)
+      // console.log('map click', e)
     })
     map.on('contextmenu', (e) => {
       e.preventDefault()
-      drawPoint.finishDrawing()
+      // drawPoint.finishDrawing()
       drawLine.abortDrawing()
       setTimeout(() => {
         this.getPointCoordinates()
       }, 2000)
     })
     map.on('change', (e) => {
-      console.log('map change', e)
+      // console.log('map change', e)
     })
     map.on('pointerdrag', (e) => {
-      console.log('map pointerdrag', e)
+      // console.log('map pointerdrag', e)
     })
 
     const addMoveTooltip = (map) => {
@@ -369,10 +379,8 @@ export default class {
     addMoveTooltip(this.oMap)
 
     map.on('pointermove', (e) => {
-      console.log('map pointermove', e)
-      const pixel = e.pixel;
-      console.log('pixel', pixel)
-      const coordinate = map.getCoordinateFromPixel([pixel[0] + 10, pixel[1] + 10]);
+      const pixel = e.pixel
+      const coordinate = map.getCoordinateFromPixel([pixel[0] + 10, pixel[1] + 10])
       this.moveOverlayInstance.setPosition(coordinate)
     })
   }
@@ -407,21 +415,9 @@ export default class {
       const lineStringNodes = vectorSource
         .getFeaturesAtCoordinate(coordinates)
         .filter((feature1) => feature1.getGeometry().getType() === 'LineString')
-      console.log(
-        'lineStringNodes',
-        feature.getId(),
-        lineStringNodes.length,
-        lineStringNodes.map((feature2) => feature2.getGeometry().getCoordinates()),
-      )
       // 点关联点
       let linkNode = lineStringNodes.map((feature4) => {
         // 线的端点
-        console.log(
-          'feature4',
-          JSON.stringify(feature4.getGeometry().getFirstCoordinate()),
-          JSON.stringify(feature4.getGeometry().getLastCoordinate()),
-          JSON.stringify(coordinates),
-        )
         return JSON.stringify(feature4.getGeometry().getFirstCoordinate()) !==
           JSON.stringify(coordinates)
           ? vectorSource
@@ -446,23 +442,22 @@ export default class {
       }
     })
     this.mapPoints = this.pointCoordinates
-    console.log('当前的mapPoints', JSON.stringify(this.mapPoints))
     return this.pointCoordinates
   }
   clear() {
     this.vectorSource?.clear()
   }
   add() {
-    this.drawPoint.setActive(true)
-    this.drawLine.setActive(true)
-    this.modifyInteraction.setActive(false)
-    this.selectInteraction.setActive(false)
+    // this.drawPoint.setActive(true)
+    // this.drawLine.setActive(true)
+    // this.modifyInteraction.setActive(false)
+    // this.selectInteraction.setActive(false)
   }
   modify() {
-    this.drawPoint.setActive(false)
-    this.drawLine.setActive(false)
-    this.modifyInteraction.setActive(true)
-    this.selectInteraction.setActive(true)
+    // this.drawPoint.setActive(false)
+    // this.drawLine.setActive(false)
+    // this.modifyInteraction.setActive(true)
+    // this.selectInteraction.setActive(true)
   }
   updateMapPoints(mapPoints) {
     this.mapPoints = mapPoints
