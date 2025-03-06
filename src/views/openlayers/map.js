@@ -68,17 +68,27 @@ export default class {
     })
     map.addLayer(vectorLayer)
 
+    // 自定义style，为了去除跟踪鼠标的默认圆点
+    const drawStyle = new Style({
+      stroke: new Stroke({
+        color: '#ffcc33',
+        width: 5,
+      }),
+    });
+
     const drawPoint = new Draw({
       source: vectorSource,
       type: 'Point',
+      style: [drawStyle],
       condition: (mapBrowserEvent) => {
         // 判断当前画的点在不在线上
-        return canDraw(mapBrowserEvent, drawPoint)
+        return canDraw(mapBrowserEvent) || mapBrowserEvent.originalEvent.button === 2
       }
     })
     const drawLine = new Draw({
       source: vectorSource,
       type: 'LineString',
+      style: [drawStyle],
       condition: (mapBrowserEvent) => {
         const event = mapBrowserEvent.originalEvent
         // 检查是否为鼠标左键或触控
@@ -87,7 +97,7 @@ export default class {
         const isTouch = event.type.startsWith('touch')
         // 在 Mac 上，ctrl + 左键会被视为右键
         const isMacRightClick = event.ctrlKey && event.button === 0
-        return canDraw(mapBrowserEvent, drawPoint) && (isLeftClick || isTouch || isMacRightClick)
+        return canDraw(mapBrowserEvent) && (isLeftClick || isTouch || isMacRightClick)
       },
     })
     const modifyInteraction = new Modify({
@@ -448,7 +458,7 @@ export default class {
     this.vectorSource?.clear()
   }
   add() {
-    // this.drawPoint.setActive(true)
+    // this.drawPoint.setActive(false)
     // this.drawLine.setActive(true)
     // this.modifyInteraction.setActive(false)
     // this.selectInteraction.setActive(false)
