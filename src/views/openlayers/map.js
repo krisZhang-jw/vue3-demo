@@ -20,6 +20,7 @@ export default class {
     this.oMap = null
     this.isDrawing = false
     this.isDrawingLine = false
+    this.isCanDrawPoint = false
   }
 
   init(domain) {
@@ -75,12 +76,12 @@ export default class {
       condition: (mapBrowserEvent) => {
         // 判断当前画的点在不在线上
         if (mapBrowserEvent.originalEvent.button === 2) {
-          console.log('drawPoint condition this.isDrawingLine', this.isDrawingLine)
-          return this.isDrawingLine
+          this.isCanDrawPoint = this.isDrawingLine
         } else if (mapBrowserEvent.originalEvent.button === 0) {
           console.log('drawPoint condition canDraw(mapBrowserEvent)', canDraw(mapBrowserEvent))
-          return canDraw(mapBrowserEvent)
+          this.isCanDrawPoint = canDraw(mapBrowserEvent)
         }
+        return this.isCanDrawPoint
       },
     })
     const drawLine = new Draw({
@@ -391,9 +392,11 @@ export default class {
     addMoveTooltip(this.oMap)
 
     map.on('pointermove', (e) => {
+      console.log('pointermove 能画吗', e, drawPoint.condition_(e))
       const pixel = e.pixel
-      const coordinate = map.getCoordinateFromPixel([pixel[0] + 10, pixel[1] + 10])
-      this.moveOverlayInstance.setPosition(coordinate)
+      const coordinate = e.coordinate
+      const overlayCoordinate = map.getCoordinateFromPixel([pixel[0] + 10, pixel[1] + 10])
+      this.moveOverlayInstance.setPosition(overlayCoordinate)
     })
   }
 
