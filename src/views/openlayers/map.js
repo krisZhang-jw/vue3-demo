@@ -8,7 +8,7 @@ import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style'
 import { Feature, Overlay } from 'ol'
 import { LineString, Point } from 'ol/geom'
 import { click } from 'ol/events/condition.js'
-import { getDistance } from 'ol/sphere';
+import { getDistance } from 'ol/sphere'
 
 export default class {
   constructor(opt) {
@@ -19,6 +19,7 @@ export default class {
     this.vueDomain = null
     this.oMap = null
     this.isDrawing = false
+    this.isDrawingLine = false
   }
 
   init(domain) {
@@ -73,8 +74,14 @@ export default class {
       type: 'Point',
       condition: (mapBrowserEvent) => {
         // 判断当前画的点在不在线上
-        return canDraw(mapBrowserEvent, drawPoint)
-      }
+        if (mapBrowserEvent.originalEvent.button === 2) {
+          console.log('drawPoint condition this.isDrawingLine', this.isDrawingLine)
+          return this.isDrawingLine
+        } else if (mapBrowserEvent.originalEvent.button === 0) {
+          console.log('drawPoint condition canDraw(mapBrowserEvent)', canDraw(mapBrowserEvent))
+          return canDraw(mapBrowserEvent)
+        }
+      },
     })
     const drawLine = new Draw({
       source: vectorSource,
@@ -108,7 +115,7 @@ export default class {
       // console.log('snap', e)
     })
 
-    this.interactions = [modifyInteraction,selectInteraction, drawLine, drawPoint, snapInteraction, ]
+    this.interactions = [modifyInteraction, selectInteraction, drawLine, drawPoint, snapInteraction]
     this.vectorSource = vectorSource
     this.vectorLayer = vectorLayer
     this.drawPoint = drawPoint
@@ -123,12 +130,12 @@ export default class {
       let res = true
 
       // 遍历所有现有线
-      vectorSource.forEachFeature(function(feature) {
-        const geometry = feature.getGeometry();
+      vectorSource.forEachFeature(function (feature) {
+        const geometry = feature.getGeometry()
         if (geometry instanceof LineString) {
           // 检查初始点是否在线上
-          const closestPoint = geometry.getClosestPoint(startCoord); // 获取线上最近的点
-          const distance = getDistance(startCoord, closestPoint); // 计算两点之间的距离
+          const closestPoint = geometry.getClosestPoint(startCoord) // 获取线上最近的点
+          const distance = getDistance(startCoord, closestPoint) // 计算两点之间的距离
           console.log('distance', distance)
 
           // 检查初始点是否在点上
@@ -138,14 +145,14 @@ export default class {
               return true
             }
           })
-    
+
           // 如果不在点上 且 距离小于一个阈值（例如 1 米），则认为初始点在线上
           if (!isPoint && distance < 1) {
             // 取消绘制
-            res = false;
+            res = false
           }
         }
-      });
+      })
       return res
     }
 
@@ -161,9 +168,14 @@ export default class {
     })
     drawLine.on('drawstart', (e) => {
       console.log('drawLine drawstart', e)
+      this.isDrawingLine = true
+    })
+    drawLine.on('drawend', (e) => {
+      this.isDrawingLine = false
     })
     drawLine.on('drawabort', (e) => {
       console.log('drawLine drawabort', e)
+      this.isDrawingLine = false
       // drawLine.removeLastPoint()
       const coordinates = e.feature.getGeometry().getCoordinates()
       const segments = coordinates.map((coordinate, index, array) => {
