@@ -235,10 +235,8 @@ export default class {
           }, 0)
       e.feature.setId(maxId + 1)
 
-      // 
-      const coordinates = this.sketchFeature?.getGeometry().getCoordinates()//.slice(0, -1)
-      console.log('drawPoint drawend coordinates', coordinates)
-      const segments = coordinates?.map((coordinate, index, array) => {
+      const coordinates = this.sketchFeature?.getGeometry().getCoordinates()
+      const segments = coordinates?.slice(-2).map((coordinate, index, array) => {
         if (index > 0 && JSON.stringify(coordinate) !== JSON.stringify(array[index - 1])) {
           return new LineString([array[index - 1], coordinate])
         }
@@ -263,21 +261,22 @@ export default class {
     drawLine.on('drawabort', (e) => {
       console.log('drawLine drawabort', e)
       this.isDrawingLine = false
-      // this.sketchFeature = e.feature // 清除草图要素
       // drawLine.removeLastPoint()
-      // const coordinates = e.feature.getGeometry().getCoordinates()
-      // const segments = coordinates.map((coordinate, index, array) => {
-      //   if (index > 0 && JSON.stringify(coordinate) !== JSON.stringify(array[index - 1])) {
-      //     return new LineString([array[index - 1], coordinate])
-      //   }
-      //   return null
-      // })
-      // segments.forEach((segment) => {
-      //   if (segment) {
-      //     const newFeature = new Feature(segment)
-      //     vectorSource.addFeature(newFeature)
-      //   }
-      // })
+      const coordinates = e.feature.getGeometry().getCoordinates()
+      // drawabort只画最后一段线
+      const segments = coordinates.slice(-2).map((coordinate, index, array) => {
+        if (index > 0 && JSON.stringify(coordinate) !== JSON.stringify(array[index - 1])) {
+          return new LineString([array[index - 1], coordinate])
+        }
+        return null
+      })
+      segments.forEach((segment) => {
+        if (segment) {
+          const newFeature = new Feature(segment)
+          vectorSource.addFeature(newFeature)
+        }
+      })
+      this.sketchFeature = null
     })
 
     selectInteraction.on('select', (e) => {
