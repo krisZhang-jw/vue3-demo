@@ -7,7 +7,7 @@ import { Vector as VectorLayer } from 'ol/layer'
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style'
 import { Feature, Overlay } from 'ol'
 import { LineString, Point } from 'ol/geom'
-import { click } from 'ol/events/condition.js'
+import { click, primaryAction } from 'ol/events/condition.js'
 import { getDistance } from 'ol/sphere'
 import { squaredDistance } from 'ol/coordinate'
 
@@ -167,6 +167,7 @@ export default class {
       insertVertexCondition: (event) => {
         return false
       },
+      condition: (e) => !this.isDrawingLine && primaryAction(e),
     })
     const snapInteraction = new Snap({ source: vectorSource })
     const selectInteraction = new Select({
