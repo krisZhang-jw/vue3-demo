@@ -7,9 +7,12 @@ import { Vector as VectorLayer } from 'ol/layer'
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style'
 import { Feature, Overlay } from 'ol'
 import { LineString, Point } from 'ol/geom'
-import { click } from 'ol/events/condition.js'
+import { click, primaryAction } from 'ol/events/condition.js'
 import { getDistance } from 'ol/sphere'
+import { squaredDistance } from 'ol/coordinate'
 
+let isOverLine = false
+let isOverPoint = false
 export default class {
   constructor(opt) {
     // this.sdk = opt.sdk
@@ -20,6 +23,7 @@ export default class {
     this.oMap = null
     this.isDrawing = false
     this.isDrawingLine = false
+    this.sketchFeature = null
   }
 
   init(domain) {
@@ -69,9 +73,63 @@ export default class {
     })
     map.addLayer(vectorLayer)
 
+    // 吸附样式
+    const defaultSnapStyle = [
+      new Style({
+        image: new CircleStyle({
+          radius: 5,
+          fill: new Fill({
+            color: '#2C99FC',
+          }),
+          stroke: new Stroke({
+            color: '#FFFFFF',
+            width: 2,
+          }),
+        }),
+      }),
+    ]
+    // 绘制时样式
+    const drawStyle = [
+      new Style({
+        stroke: new Stroke({
+          color: '#ffcc33',
+          width: 5,
+        }),
+        image: new CircleStyle({
+          radius: 6,
+          fill: new Fill({
+            color: '#2C99FC',
+          }),
+          stroke: new Stroke({
+            color: '#FFFFFF',
+            width: 1,
+          }),
+        }),
+      }),
+    ]
+
+    // 无点样式
+    const noStyle = [
+      new Style({
+        stroke: new Stroke({
+          color: '#ffcc33',
+          width: 5,
+        }),
+      }),
+    ]
+
     const drawPoint = new Draw({
       source: vectorSource,
       type: 'Point',
+      style: (feature) => {
+        if (isOverPoint) {
+          return defaultSnapStyle
+        } else if (isOverLine) {
+          return noStyle
+        } else {
+          return drawStyle
+        }
+      },
       condition: (mapBrowserEvent) => {
         // 判断当前画的点在不在线上
         if (mapBrowserEvent.originalEvent.button === 2) {
@@ -86,6 +144,12 @@ export default class {
     const drawLine = new Draw({
       source: vectorSource,
       type: 'LineString',
+      style: (feature) => {
+        if (isOverLine) {
+          return noStyle
+        }
+        return drawStyle
+      },
       condition: (mapBrowserEvent) => {
         const event = mapBrowserEvent.originalEvent
         // 检查是否为鼠标左键或触控
@@ -94,7 +158,7 @@ export default class {
         const isTouch = event.type.startsWith('touch')
         // 在 Mac 上，ctrl + 左键会被视为右键
         const isMacRightClick = event.ctrlKey && event.button === 0
-        return canDraw(mapBrowserEvent, drawPoint) && (isLeftClick || isTouch || isMacRightClick)
+        return canDraw(mapBrowserEvent) && (isLeftClick || isTouch || isMacRightClick)
       },
     })
     const modifyInteraction = new Modify({
@@ -103,6 +167,7 @@ export default class {
       insertVertexCondition: (event) => {
         return false
       },
+      condition: (e) => !this.isDrawingLine && primaryAction(e),
     })
     const snapInteraction = new Snap({ source: vectorSource })
     const selectInteraction = new Select({
@@ -136,7 +201,6 @@ export default class {
           // 检查初始点是否在线上
           const closestPoint = geometry.getClosestPoint(startCoord) // 获取线上最近的点
           const distance = getDistance(startCoord, closestPoint) // 计算两点之间的距离
-          console.log('distance', distance)
 
           // 检查初始点是否在点上
           const isPoint = vectorSource.getFeatures().some((feature) => {
@@ -157,28 +221,51 @@ export default class {
     }
 
     drawPoint.on('drawstart', (e) => {
+      this.isDrawingPoint = true
       console.log('drawPoint drawstart', e)
     })
     drawPoint.on('drawend', (e) => {
       console.log('drawPoint drawend', e)
-      const id =
-        vectorSource.getFeatures().filter((feature) => feature.getGeometry().getType() === 'Point')
-          .length + 1
-      e.feature.setId(id)
+      this.isDrawingPoint = false
+      // const id =
+      //   vectorSource.getFeatures().filter((feature) => feature.getGeometry().getType() === 'Point')
+      //     .length + 1
+      const maxId = vectorSource.getFeatures().reduce((max, feature) => {
+        const featureId = feature.getId()
+        return featureId > max ? featureId : max
+      }, 0)
+      e.feature.setId(maxId + 1)
+
+      const coordinates = this.sketchFeature?.getGeometry().getCoordinates()
+      const segments = coordinates?.slice(-2).map((coordinate, index, array) => {
+        if (index > 0 && JSON.stringify(coordinate) !== JSON.stringify(array[index - 1])) {
+          return new LineString([array[index - 1], coordinate])
+        }
+        return null
+      })
+      segments?.forEach((segment) => {
+        if (segment) {
+          const newFeature = new Feature(segment)
+          vectorSource.addFeature(newFeature)
+        }
+      })
     })
     drawLine.on('drawstart', (e) => {
       console.log('drawLine drawstart', e)
       this.isDrawingLine = true
+      this.sketchFeature = e.feature // 保存当前绘制的草图要素
     })
     drawLine.on('drawend', (e) => {
       this.isDrawingLine = false
+      this.sketchFeature = null // 清除草图要素
     })
     drawLine.on('drawabort', (e) => {
       console.log('drawLine drawabort', e)
       this.isDrawingLine = false
       // drawLine.removeLastPoint()
       const coordinates = e.feature.getGeometry().getCoordinates()
-      const segments = coordinates.map((coordinate, index, array) => {
+      // drawabort只画最后一段线
+      const segments = coordinates.slice(-2).map((coordinate, index, array) => {
         if (index > 0 && JSON.stringify(coordinate) !== JSON.stringify(array[index - 1])) {
           return new LineString([array[index - 1], coordinate])
         }
@@ -190,6 +277,7 @@ export default class {
           vectorSource.addFeature(newFeature)
         }
       })
+      this.sketchFeature = null
     })
 
     selectInteraction.on('select', (e) => {
@@ -392,8 +480,32 @@ export default class {
 
     map.on('pointermove', (e) => {
       const pixel = e.pixel
-      const coordinate = map.getCoordinateFromPixel([pixel[0] + 10, pixel[1] + 10])
-      this.moveOverlayInstance.setPosition(coordinate)
+      const coordinate = e.coordinate
+      const overlayCoordinate = map.getCoordinateFromPixel([pixel[0] + 10, pixel[1] + 10])
+      this.moveOverlayInstance.setPosition(overlayCoordinate)
+
+      // if (!this.isDrawingPoint && !this.isDrawingLine) {
+      isOverLine = false
+      isOverPoint = false
+
+      const featuresAtPixel = map
+        .getFeaturesAtPixel(e.pixel, { hitTolerance: 10 })
+        .filter((f) => vectorSource.hasFeature(f)) // 排除鼠标草图
+
+      // 先判断是否有点
+      isOverPoint = featuresAtPixel.some((f) => {
+        if (f.getGeometry().getType() === 'Point') {
+          const pointCoord = f.getGeometry().getCoordinates()
+          const distance = getDistance(coordinate, pointCoord)
+          return distance < 10 // TODO: 判断到圆形的距离，避免snap还没吸附，鼠标上的点颜色已经变化
+        }
+        return false
+      })
+      // 如果没有点，再看是否有线
+      isOverLine =
+        !isOverPoint && featuresAtPixel.some((f) => f.getGeometry().getType() === 'LineString')
+      // console.log('isOverLine===', isOverLine, 'isOverPoint==', isOverPoint)
+      // }
     })
   }
 
@@ -460,7 +572,7 @@ export default class {
     this.vectorSource?.clear()
   }
   add() {
-    // this.drawPoint.setActive(true)
+    // this.drawPoint.setActive(false)
     // this.drawLine.setActive(true)
     // this.modifyInteraction.setActive(false)
     // this.selectInteraction.setActive(false)

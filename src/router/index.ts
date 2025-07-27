@@ -1,8 +1,8 @@
 /*
  * @Author: zhangjiewen 474350393@qq.com
  * @Date: 2024-12-28 20:27:40
- * @LastEditors: zhangjiewen 474350393@qq.com
- * @LastEditTime: 2025-02-14 19:43:09
+ * @LastEditors: zhangtao13626 zhangtao13626@servyou.com.cn
+ * @LastEditTime: 2025-03-08 13:21:19
  * @FilePath: /vue3-demo/src/router/index.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -23,6 +23,11 @@ const router = createRouter({
       component: () => import('../views/openlayers/index.vue'),
     },
     {
+      path: '/openlayers2',
+      name: 'openlayers2',
+      component: () => import('../views/openlayers2/index.vue'),
+    },
+    {
       path: '/about',
       name: 'about',
       // route level code-splitting
@@ -35,6 +40,16 @@ const router = createRouter({
       name: 'echarts',
       component: () => import('../views/echarts/EchartsView.vue'),
     },
+    {
+      path: '/codeeditor',
+      name: 'codeeditor',
+      component: () => import('../views/code-editor/index.vue'),
+    },
+    {
+      path: '/elementui',
+      name: 'elementui',
+      component: () => import('../views/elementui/index.vue'),
+    }
   ],
 })
 
