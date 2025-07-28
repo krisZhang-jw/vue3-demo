@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" vapor>
 // import { RouterLink, RouterView } from 'vue-router'
 // import HelloWorld from './components/HelloWorld.vue'
 import VaporMode from './views/vaporMode/index.vue'
@@ -20,7 +20,6 @@ import VaporMode from './views/vaporMode/index.vue'
   <div class="app-container">
     <!-- <RouterView /> -->
     <VaporMode />
-    11
   </div>
 </template>
 
