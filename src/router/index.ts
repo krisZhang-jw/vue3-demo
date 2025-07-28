@@ -49,7 +49,12 @@ const router = createRouter({
       path: '/elementui',
       name: 'elementui',
       component: () => import('../views/elementui/index.vue'),
-    }
+    },
+    {
+      path: '/vaporMode',
+      name: 'vaporMode',
+      component: () => import('../views/vaporMode/index.vue'),
+    },
   ],
 })
 

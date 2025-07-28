@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
+// import { RouterLink, RouterView } from 'vue-router'
+// import HelloWorld from './components/HelloWorld.vue'
+import VaporMode from './views/vaporMode/index.vue'
 </script>
 
 <template>
@@ -17,7 +18,9 @@ import HelloWorld from './components/HelloWorld.vue'
     </div>
   </header> -->
   <div class="app-container">
-    <RouterView />
+    <!-- <RouterView /> -->
+    <VaporMode />
+    11
   </div>
 </template>
 
@@ -60,5 +63,4 @@ nav a {
 nav a:first-of-type {
   border: 0;
 }
-
 </style>

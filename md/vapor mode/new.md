@@ -1,0 +1,1 @@
+pnpm install vue@3.6.0-alpha.2
